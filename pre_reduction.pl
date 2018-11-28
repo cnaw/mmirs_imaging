@@ -10,32 +10,74 @@
 use Astro::FITS::CFITSIO qw( :longnames :shortnames :constants PerlyUnpacking );
 use Carp ;
 #
-if($#ARGV == -1) {
-    $date = '2017.0513';
+if($#ARGV <= 2) {
+    print "pre_reduction.pl date field filter crosstalk two-point:\n\n";
+    print "pre_reduction.pl 2018.0829 sw Y 37.5 two_point\nor\n";
+    print "pre_reduction.pl 2018.0829 sw Y 37.5\nor\n";
+    print "pre_reduction.pl 2018.0829 sw Y\n";
+    exit(0);
 } else {
-    $date  = $ARGV[0];
-    $field = $ARGV[1];
+    $date   = $ARGV[0];
+    $field  = $ARGV[1];
+    $filter = $ARGV[2];
+    if($#ARGV == 3) {
+	$crosstalk = $ARGV[3];
+    } else {
+	$crosstalk = 0;
+    }
+    if($#ARGV == 4) {
+	$two_point = 1;
+    } else {
+	$two_point = 0;
+    }
 }
-$root_dir  = '/data/Local/cnaw/nep/';
-$programme = '2017b-UAO-S117';
+#$root_dir  = '/data/Local/cnaw/nep/';
+#$programme = '2017b-UAO-S117';
+# GOGREEN
+#$root_dir = '/data1/Local/cnaw/uao_s113/' ;
+# Y, H
+$root_dir = '/data1/Local/cnaw/nep/' ;
+$programme = '/' ;
 $verbose = 0;
 
 $field     = lc($field);
 
-$xtalk_dir = $field.'_k_00/';
+# dont forget to edit 
+# /home/cnaw/idl/mmirs/pipeline/crosstalk_correction_32amp.pro
+# line 17
+# values can be 00 -25, -37.5, -50
+# 
+#$xtalk_dir = $field.'_y_37.5/';
+if($crosstalk == 0) {
+    $xtalk_dir = join('_',$field, lc($filter),'00/');
+}
+if($crosstalk == 25) {
+    $xtalk_dir = join('_',$field, lc($filter),'25/');
+}
+if($crosstalk == 37.5) {
+    $xtalk_dir = join('_',$field, lc($filter),'37.5/');
+}
+if($crosstalk == 50) {
+    $xtalk_dir = join('_',$field, lc($filter),'50/');
+}
 
 #
 # from here things should be fixed
 #
 #$template = $programme.'/'.$date.'/*.fits';
-$template  = $date.'/*$field*.fits';
+#$template  = $root_dir.$programme.$date.'/*$field*.fits';
+$science   = $root_dir.$programme.$date.'/*'.uc($field).'*.fits';
+$darks     = $root_dir.$programme.$date.'/dark*.fits';
 $idl_batch = $root_dir.$date.'_reduce.idl';
 $date_dir  = $date.'/';
 #$year = substr($date,0,4);
-@files   = `ls $template | grep -v skycam`;
+@files   = `ls $science $darks | grep -v skycam`;
 @science_type = ();
 @flats   = ();
 @arcs    = ();
+print "@files\n";
+print "$science\n$darks\npause";
+<STDIN>;
 #
 #========================================================================
 #
@@ -560,7 +602,11 @@ for($file_in_list = 0 ; $file_in_list <= $#science ; $file_in_list++) {
     
     close(LOG);
 #    $line = join(',','mmirs_imaging',"'".$logfile."'",'/verbose','/crosstalk','/clean');
-    $line = join(',','mmirs_imaging',"'".$logfile."'",'/verbose','/clean');
+    if($two_point == 1) {
+	$line = join(',','mmirs_imaging',"'".$logfile."'",'/verbose','/clean','crosstalk='.$crosstalk,'/two_point');
+    } else {
+	$line = join(',','mmirs_imaging',"'".$logfile."'",'/verbose','/clean','crosstalk='.$crosstalk);
+    }
     print IDL $line,"\n";
 }
 close(IDL);
